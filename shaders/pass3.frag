@@ -3,7 +3,7 @@
 // Output fragment colour based using
 //    (a) Cel shaded diffuse surface
 //    (b) wide silhouette in black
-
+ 
 #version 300 es
 
 uniform mediump vec3 lightDir;     // direction toward the light in the VCS
@@ -25,31 +25,51 @@ out mediump vec4 outputColour;          // the output fragment colour as RGBA wi
 void main()
 
 {
-  mediump vec2 dummy = texCoords;  // REMOVE THIS ... It's just here because MacOS complains otherwise
 
-  // [0 marks] Look up values for the depth and Laplacian.  Use only
-  // the R component of the texture as texture2D( ... ).r
+ // depth and laplacian lookup
 
-  // YOUR CODE HERE
+  mediump float depth = texture(depthSampler, texCoords).r;
+  mediump float laplac = texture(laplacianSampler, texCoords).r;
 
-  // [1 mark] Discard the fragment if it is a background pixel not
-  // near the silhouette of the object.
+ // If background pixel, output the background color (white)
+ 
+  if(depth >= 0.9 &&  abs(laplac) > 0.0)
+  {
+    outputColour = vec4(1.0, 1.0, 1.0, 1.0);
+  }
 
-  // YOUR CODE HERE
+  else
+  {
+	// look up color and normal
 
-  // [0 marks] Look up value for the colour and normal.  Use the RGB
-  // components of the texture as texture2D( ... ).rgb or texture2D( ... ).xyz.
+	mediump vec3 color = texture(colourSampler, texCoords).rgb;
+	
+	mediump vec3 normal = texture(normalSampler, texCoords).xyz;
+	
+	// incoming light intensity 
+    mediump vec3 Iin = vec3(1.0, 1.0, 1.0);
 
-  // YOUR CODE HERE
+	mediump float NdotL = dot(normal, lightDir);
 
-  // [2 marks] Compute Cel shading, in which the diffusely shaded
-  // colour is quantized into four possible values.  Do not allow the
-  // diffuse component, N dot L, to be below 0.2.  That will provide
-  // some ambient shading.  Your code should use the 'numQuata' below
-  // to have that many divisions of quanta of colour.  Do not use '3'
-  // in your code; use 'numQuanta'.  Your code should be very efficient.
+	
+	if(NdotL < 0.2)
+	{
+	  NdotL = 0.2;
+	}
+	
+	const int numQuanta = 3;
+	const mediump float H = 1.0;
+	const mediump float L = 0.2; 
 
-  const int numQuanta = 3;
+	// blending formula which is essentially a step function that maps all values to numQuanta quantization states
+	// H is the maximum value (1), while L is the minimum (0.2 in this case) of N dot L. 
+	NdotL = 0.2 + ((H - L) / (float(numQuanta) - 1.0) * float( floor( (NdotL - L) / ( (H - L) / (float(numQuanta) - 1.0)))));
+
+	mediump vec3 Iout = color * NdotL * Iin;
+	
+	outputColour = vec4(Iout,1.0);
+	
+	
 
   // YOUR CODE HERE
 
@@ -83,6 +103,6 @@ void main()
   // edge in the neighbourhood, output the cel-shaded colour.
   
   // YOUR CODE HERE
+  }
 
-  outputColour = vec4( 1.0, 0.0, 1.0, 1.0 );
 }
